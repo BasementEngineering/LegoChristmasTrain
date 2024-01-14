@@ -4,6 +4,7 @@
 #include "AnalogSensor.h"
 #include "PropulsionSystem.h"
 #include "Lights.h"
+#include "SpeedSensor.h"
 
 #include <Adafruit_NeoPixel.h>
 
@@ -32,6 +33,8 @@ unsigned int receivedChars = 0;
 uint32_t lastHeartbeat = 0;
 
 uint32_t lastLedUpdate = 0;
+
+SpeedSensor mySpeedSensor;
 
 //*** Function Prototypes ***//
 void blinkLed();
@@ -107,6 +110,8 @@ void setup() {
   analogReadResolution(12);
 
   clearInputBuffer();
+
+  mySpeedSensor.begin(SPEED_SENSOR_IN);
   
   COMM_SERIAL.begin("LEGO Train");
   
@@ -215,6 +220,8 @@ bool lastState = false;
 unsigned long lastTouchUpdate = 0;
 
 void updateSensors(){
+  mySpeedSensor.update();
+  
   if((millis()-lastTouchUpdate)>20){
     lastTouchUpdate = millis();
     bool state = digitalRead(BUTTON_IN);
@@ -227,7 +234,7 @@ void updateSensors(){
 }
 
 void setUpdateInterval(uint16_t newValue){
-    sensorUpdateInterval = (10 > newValue) ? 10 : newValue;
+   sensorUpdateInterval = (10 > newValue) ? 10 : newValue;
 }
 
 
@@ -330,7 +337,7 @@ void sendJson(JsonDocument& document){
   DEBUG_SERIAL.println("");
   #endif
   #if DEBUG_REPORT
-  sentMessages++;
+  sentMessages++; 
   #endif
 }
 
@@ -403,6 +410,7 @@ void parseChannels(DynamicJsonDocument& input){
 //*** SENSOR JSON Object ***//
 void sendSensorData(){
   StaticJsonDocument<256> sensors;
+  float avgSpeed = mySpeedSensor.getSpeedCMS();
   float avgCurrent = 0.0;
   float avgVoltage = 0.0;
   #if DEBUG_SENSORS
@@ -413,6 +421,7 @@ void sendSensorData(){
   
   sensors["sensors"]["motorCurrent"] = (int)(avgCurrent * 100 + 0.5) / 100.0;
   sensors["sensors"]["batteryVoltage"] = (int)(avgVoltage * 100 + 0.5)/ 100.0;
+  sensors["sensors"]["speed"] = (int)(avgSpeed * 100 + 0.5)/ 100.0;
 
   for(int i = 0; i < CHANNEL_COUNT; i++){
     sensors["sensors"]["outputs"][i] = 0; 

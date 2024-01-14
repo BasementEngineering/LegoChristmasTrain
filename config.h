@@ -12,15 +12,19 @@
  
 #define LED_OUT 15
 
-#define LED_STRIP 14//33
-#define BUTTON_IN 35//32
+#define LED_STRIP 14
+
+//Sensors
+#define BUTTON_IN 35
+#define SPEED_SENSOR_IN 32
+
 //Motor Pins
 #define MOTOR_EN -1
-#define MOTOR1_INA 25//19
-#define MOTOR1_INB 26//4
+#define MOTOR1_INA 25
+#define MOTOR1_INB 26
 
-#define SERIAL_TX 17 //1
-#define SERIAL_RX 16 //2
+#define SERIAL_TX 17 
+#define SERIAL_RX 16 
 
 #define MY_SDA 21
 #define MY_SCL 22

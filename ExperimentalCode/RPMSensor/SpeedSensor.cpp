@@ -1,9 +1,20 @@
 #include "SpeedSensor.h"
 #include "Arduino.h"
 
+#define LOW_SPEED_TIMEOUT 1000 //ms aka 0,05 m/s
+#define REED_DEBOUNCE_TIME 5
+#define WHEEL_CIRCUMFERENCE 0.05027F 
+
+//Defining the static variables
+int SpeedSensor::numberOfInstances = 0;
+unsigned long SpeedSensor::lastRoundSignal;
+unsigned long SpeedSensor::durationWindow[BUFFER_SIZE];
+int SpeedSensor::slotCounter;
+
 SpeedSensor::SpeedSensor(){
-    lastUpdate = 0;
-    lastState = false;
+    myInstanceNumber = numberOfInstances;
+    numberOfInstances++;
+
     lastRoundSignal = 0;
     slotCounter = 0;
     resetBuffer();
@@ -12,25 +23,28 @@ SpeedSensor::SpeedSensor(){
   void SpeedSensor::begin(int pin){
     myPin = pin;
     pinMode(myPin,INPUT_PULLUP);
+    attachInterrupt(myPin, interruptRoutine, FALLING);
+  }
+
+  void SpeedSensor::interruptRoutine(){
+    unsigned long currentTime = millis();
+    if(currentTime - lastRoundSignal > REED_DEBOUNCE_TIME){
+      durationWindow[slotCounter] = currentTime - lastRoundSignal;
+      slotCounter++;
+      slotCounter%=BUFFER_SIZE;
+    }
+    lastRoundSignal = currentTime;
   }
 
   void SpeedSensor::update(){
     unsigned long currentTime = millis();
-    if(currentTime - lastUpdate > 10){
-    lastUpdate = currentTime;
-    bool state = digitalRead(myPin);
-    if(state && !lastState){
-      durationWindow[slotCounter] = currentTime - lastRoundSignal;
+    if( (currentTime - lastRoundSignal) > LOW_SPEED_TIMEOUT){
+      lastRoundSignal = currentTime;
+      durationWindow[slotCounter] = 0;
       slotCounter++;
       slotCounter%=BUFFER_SIZE;
-      lastRoundSignal = currentTime;
-    }
-
-    if(currentTime - lastRoundSignal > 1000){
       resetBuffer();
     }
-    lastState = state;
-  }
   }
 
   void SpeedSensor::resetBuffer(){
@@ -52,7 +66,5 @@ SpeedSensor::SpeedSensor(){
     if(avgDuration == 0){
       return 0.0;
     }
-    //Diameter = 16mm -> circumference = 50,27mm aka. 0.05027 m
-    float distancePerRevolution = 0.05027;
-    return 3.6 * (distancePerRevolution/(avgDuration*0.001));
+    return 3.6 * (WHEEL_CIRCUMFERENCE/(avgDuration*0.001));
   }

@@ -3,9 +3,10 @@
 
 #define LOW_SPEED_TIMEOUT 1000 //ms aka 0,05 m/s
 #define REED_DEBOUNCE_TIME 5
-#define WHEEL_CIRCUMFERENCE 0.05027F 
+#define WHEEL_CIRCUMFERENCE 0.050265F 
 
-#define SCALE_FACTOR 34
+#define SCALE_FACTOR 40
+
 //Defining the static variables
 int SpeedSensor::numberOfInstances = 0;
 unsigned long SpeedSensor::lastRoundSignal;
@@ -33,15 +34,15 @@ SpeedSensor::SpeedSensor(){
       durationWindow[slotCounter] = currentTime - lastRoundSignal;
       slotCounter++;
       slotCounter%=BUFFER_SIZE;
+      lastRoundSignal = currentTime;
     }
-    lastRoundSignal = currentTime;
   }
 
   void SpeedSensor::update(){
     unsigned long currentTime = millis();
+    //too slow
     if( (currentTime - lastRoundSignal) > LOW_SPEED_TIMEOUT){
-      lastRoundSignal = currentTime;
-
+      //lastRoundSignal = currentTime;
       durationWindow[slotCounter] = 0;
       slotCounter++;
       slotCounter%=BUFFER_SIZE;
@@ -63,14 +64,22 @@ SpeedSensor::SpeedSensor(){
     return sum/BUFFER_SIZE;
   }
 
-  float SpeedSensor::getScaleSpeed(){
-    return SCALE_FACTOR * getSpeedKMH();
-  }
-  
-  float SpeedSensor::getSpeedKMH(){
+  float SpeedSensor::getSpeedMS(){
     unsigned long avgDuration = getAvgDuration();
     if(avgDuration == 0){
       return 0.0;
     }
-    return 3.6 * (WHEEL_CIRCUMFERENCE/(avgDuration*0.001));
+    return WHEEL_CIRCUMFERENCE/(avgDuration*0.001);
+  }
+  
+  float SpeedSensor::getSpeedKMH(){
+    return 3.6 * getSpeedMS();
+  }
+  
+  float SpeedSensor::getScaleSpeed(){
+    return SCALE_FACTOR * getSpeedKMH();
+  }
+
+  float SpeedSensor::getSpeedCMS(){
+    return 100 * getSpeedMS();
   }

@@ -15,6 +15,6 @@ void loop() {
   mySpeedSensor.update();
   if(millis() - lastPrintUpdate > 100){
     lastPrintUpdate = millis();
-    Serial.println(mySpeedSensor.getSpeed());
+    Serial.println(mySpeedSensor.getScaleSpeed());
   }
 }

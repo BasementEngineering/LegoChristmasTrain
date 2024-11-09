@@ -30,7 +30,9 @@ class SpeedSensor{
   void update();
   void resetBuffer();
   unsigned long getAvgDuration();
-  float getScaleSpeed();
+  float getSpeedMS();
   float getSpeedKMH();
+  float getScaleSpeed();
+  float getSpeedCMS();
 };
 #endif

@@ -14,9 +14,9 @@ class TrainMotor{
     Serial.println("Attachig motor driver");
     Serial.println(driverPin);
     ESP32PWM::allocateTimer(0);
-	  ESP32PWM::allocateTimer(1);
-	  ESP32PWM::allocateTimer(2);
-	  ESP32PWM::allocateTimer(3);
+	  //ESP32PWM::allocateTimer(1);
+	  //ESP32PWM::allocateTimer(2);
+	  //ESP32PWM::allocateTimer(3);
 	  motorDriver.setPeriodHertz(50);
     motorDriver.attach(driverPin, 1000, 2000);
     motorDriver.writeMicroseconds(1500);

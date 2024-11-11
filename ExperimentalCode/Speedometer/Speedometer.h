@@ -5,11 +5,11 @@
 #include <AS5600.h>
 #include <Arduino.h>
 
-#define SPEEDOMETER_UPDATE_INTERVAL_MS 3
+#define SENSE_INTERVAL 4
 
-#define SENSE_INTERVAL 2
-
-const float circumference_m = 0.05027;
+const float circumference_cm = 5.027;
+const float stepToCm = 0.0139638; // circumference_cm/360
+const float timeMultiplier = 250.0;
 
 static volatile float currentSpeed = 0.0;
 static volatile int newAngle = 0;
@@ -25,7 +25,6 @@ void IRAM_ATTR getReading() {
 
       if(newAngle != oldAngle){
         int angleDelta = 0;
-        float angularVelocity = 0.0;
 
         if((oldAngle < 150) && (newAngle > 210)){ //Rollunder
             angleDelta = (360 - newAngle) + oldAngle;
@@ -39,13 +38,12 @@ void IRAM_ATTR getReading() {
             angleDelta = newAngle - oldAngle;
         }
 
-        angularVelocity = angleDelta * 1000 / SENSE_INTERVAL;
-        newSpeed = angularVelocity * (circumference_m / 4095);
-        
+        newSpeed = (float)(angleDelta) * stepToCm * timeMultiplier;
       }
 
       currentSpeed = newSpeed;//(newSpeed + lastSpeed) * 0.5;
       oldAngle = newAngle;
+      newReading = true;
       //lastSpeed = currentSpeed;
     }
 
@@ -54,7 +52,7 @@ hw_timer_t *Timer0_Cfg = NULL;
 void setupTimerInterrupt(){
   Timer0_Cfg = timerBegin(1000000);
   timerAttachInterrupt(Timer0_Cfg, &getReading);
-  timerAlarm(Timer0_Cfg, SPEEDOMETER_UPDATE_INTERVAL_MS * 1000, true, 0);
+  timerAlarm(Timer0_Cfg, SENSE_INTERVAL * 1000, true, 0);
 }
 
 class Speedometer {
@@ -100,21 +98,20 @@ class Speedometer {
       return retVal;
     }
 
+    bool updateAvailable(){
+      if(newReading){
+        newReading = false;
+        return true;
+      }
+      return false;
+    }
+
     float getSpeed() {
-      return 0.0;//currentSpeed;
+      return currentSpeed;
     }
 
     float getDistance() {
-      return 0.0;//revolutionDelta * circumference_m;
-    }
-
-    void update() {
-      if(millis() - lastUpdate > 100){
-
-        Serial.print("speed: " + String(currentSpeed));
-        Serial.println();
-        lastUpdate = millis();
-      }
+      return revolutionDelta * circumference_cm;
     }
 };
 

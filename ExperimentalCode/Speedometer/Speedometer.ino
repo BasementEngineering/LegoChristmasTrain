@@ -4,7 +4,7 @@
 
 Speedometer speedometer(ANALOG_SENSOR_PIN);
 
-#define WINDOW_SIZE 10
+#define WINDOW_SIZE 1
 
 float values[WINDOW_SIZE];
 int position = 0;

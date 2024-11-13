@@ -5,25 +5,32 @@
 #include <AS5600.h>
 #include <Arduino.h>
 
-#define SENSE_INTERVAL 4
+#define SENSE_INTERVAL 1 //Check sensor every ms to securely detect rollovers
 
-const float circumference_cm = 5.027;
-const float stepToCm = 0.0139638; // circumference_cm/360
-const float timeMultiplier = 250.0;
+#define COUNTER_LIMIT 100
 
-static volatile float currentSpeed = 0.0;
+static volatile int counter = 0;
+static volatile int angle_sum = 0;
+const int circumference_mm = 50;
+const double stepToMm = 0.138888; // circumference_cm/360
+const int timeMultiplier = 10; //Calculate speed every 10 ms
+
+static volatile int currentSpeed = 0.0;
 static volatile int newAngle = 0;
 static volatile bool newReading = false;
 static volatile int oldAngle = 0;
 static volatile int revolutionDelta = 0;
 static int analogSensePin;
 
+#define JIGGLE_OFFSET 1
+
+//Flats are not allowed in isr https://www.reddit.com/r/esp32/comments/lj2nkx/just_discovered_that_you_cant_use_floats_in_isr/?rdt=40811
 void IRAM_ATTR getReading() {
       newAngle = analogRead(analogSensePin);
       newAngle = map(newAngle, 0, 4095, 0, 360);
-      float newSpeed = 0.0;
+      int newSpeed_mm_s = 0;
 
-      if(newAngle != oldAngle){
+      if(newAngle > (oldAngle+JIGGLE_OFFSET) || newAngle < (oldAngle-JIGGLE_OFFSET)){
         int angleDelta = 0;
 
         if((oldAngle < 150) && (newAngle > 210)){ //Rollunder
@@ -38,13 +45,18 @@ void IRAM_ATTR getReading() {
             angleDelta = newAngle - oldAngle;
         }
 
-        newSpeed = (float)(angleDelta) * stepToCm * timeMultiplier;
+        angle_sum+=angleDelta;
       }
 
-      currentSpeed = newSpeed;//(newSpeed + lastSpeed) * 0.5;
       oldAngle = newAngle;
-      newReading = true;
-      //lastSpeed = currentSpeed;
+      counter++;
+
+      if(counter == COUNTER_LIMIT){
+        counter = 0;
+        currentSpeed = angle_sum * timeMultiplier * stepToMm;
+        newReading = true;
+        angle_sum = 0;
+      }
     }
 
 hw_timer_t *Timer0_Cfg = NULL;
@@ -106,12 +118,12 @@ class Speedometer {
       return false;
     }
 
-    float getSpeed() {
+    int getSpeed() {
       return currentSpeed;
     }
 
     float getDistance() {
-      return revolutionDelta * circumference_cm;
+      return revolutionDelta * circumference_mm;
     }
 };
 

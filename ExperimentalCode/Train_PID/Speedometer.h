@@ -5,27 +5,33 @@
 #include <AS5600.h>
 #include <Arduino.h>
 
-#define SPEEDOMETER_UPDATE_INTERVAL_MS 3
+#define SENSE_INTERVAL 1 //Check sensor every ms to securely detect rollovers
 
-#define SENSE_INTERVAL 2
+#define COUNTER_LIMIT 100
 
-const float circumference_m = 0.05027;
+static volatile int counter = 0;
+static volatile int angle_sum = 0;
+const int circumference_mm = 50;
+const double stepToMm = 0.138888; // circumference_cm/360
+const int timeMultiplier = 10; //Calculate speed every 10 ms
 
-static volatile float currentSpeed = 0.0;
+static volatile int currentSpeed = 0.0;
 static volatile int newAngle = 0;
 static volatile bool newReading = false;
 static volatile int oldAngle = 0;
 static volatile int revolutionDelta = 0;
 static int analogSensePin;
 
+#define JIGGLE_OFFSET 1
+
+//Flats are not allowed in isr https://www.reddit.com/r/esp32/comments/lj2nkx/just_discovered_that_you_cant_use_floats_in_isr/?rdt=40811
 void IRAM_ATTR getReading() {
       newAngle = analogRead(analogSensePin);
       newAngle = map(newAngle, 0, 4095, 0, 360);
-      float newSpeed = 0.0;
+      int newSpeed_mm_s = 0;
 
-      if(newAngle != oldAngle){
+      if(newAngle > (oldAngle+JIGGLE_OFFSET) || newAngle < (oldAngle-JIGGLE_OFFSET)){
         int angleDelta = 0;
-        float angularVelocity = 0.0;
 
         if((oldAngle < 150) && (newAngle > 210)){ //Rollunder
             angleDelta = (360 - newAngle) + oldAngle;
@@ -39,14 +45,18 @@ void IRAM_ATTR getReading() {
             angleDelta = newAngle - oldAngle;
         }
 
-        angularVelocity = angleDelta * 1000 / SENSE_INTERVAL;
-        newSpeed = angularVelocity * (circumference_m / 4095);
-        
+        angle_sum+=angleDelta;
       }
 
-      currentSpeed = newSpeed;//(newSpeed + lastSpeed) * 0.5;
       oldAngle = newAngle;
-      //lastSpeed = currentSpeed;
+      counter++;
+
+      if(counter == COUNTER_LIMIT){
+        counter = 0;
+        currentSpeed = angle_sum * timeMultiplier * stepToMm;
+        newReading = true;
+        angle_sum = 0;
+      }
     }
 
 hw_timer_t *Timer0_Cfg = NULL;
@@ -54,7 +64,7 @@ hw_timer_t *Timer0_Cfg = NULL;
 void setupTimerInterrupt(){
   Timer0_Cfg = timerBegin(1000000);
   timerAttachInterrupt(Timer0_Cfg, &getReading);
-  timerAlarm(Timer0_Cfg, SPEEDOMETER_UPDATE_INTERVAL_MS * 1000, true, 0);
+  timerAlarm(Timer0_Cfg, SENSE_INTERVAL * 1000, true, 0);
 }
 
 class Speedometer {
@@ -100,21 +110,20 @@ class Speedometer {
       return retVal;
     }
 
-    float getSpeed() {
-      return 0.0;//currentSpeed;
+    bool updateAvailable(){
+      if(newReading){
+        newReading = false;
+        return true;
+      }
+      return false;
+    }
+
+    int getSpeed() {
+      return currentSpeed;
     }
 
     float getDistance() {
-      return 0.0;//revolutionDelta * circumference_m;
-    }
-
-    void update() {
-      if(millis() - lastUpdate > 100){
-
-        Serial.print("speed: " + String(currentSpeed));
-        Serial.println();
-        lastUpdate = millis();
-      }
+      return revolutionDelta * circumference_mm;
     }
 };
 
